@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Agent Synthesis</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232733;
+      --border: #2e3345;
+      --text: #e4e7f0;
+      --text-dim: #8891a5;
+      --claude: #d4a574;
+      --chatgpt: #74d4a5;
+      --gemini: #74a5d4;
+      --accent: #a78bfa;
+      --accent-dim: #7c5cbf;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* --- Header --- */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .header h1 span { color: var(--accent); }
+    .api-status {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .api-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+      background: #ef4444;
+    }
+    .api-dot.ok { background: #22c55e; }
+
+    /* --- Main layout --- */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 32px;
+    }
+
+    /* --- Input section --- */
+    .input-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .input-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .input-row .field { flex: 1; }
+    .input-row .field.small { flex: 0 0 120px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea:focus, input:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn:hover { background: var(--accent-dim); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 12px; align-items: center; }
+
+    /* --- Progress bar --- */
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.active { display: block; }
+    .progress-bar .fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--claude), var(--chatgpt), var(--gemini));
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease infinite;
+      transition: width 0.4s ease;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* --- Rounds --- */
+    .rounds-container {}
+
+    .round-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .round-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      cursor: pointer;
+      user-select: none;
+      background: var(--surface);
+      transition: background 0.2s;
+    }
+    .round-header:hover { background: var(--surface2); }
+    .round-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .round-header .badge {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .badge.running {
+      background: rgba(167,139,250,0.15);
+      color: var(--accent);
+    }
+    .badge.done {
+      background: rgba(34,197,94,0.15);
+      color: #22c55e;
+    }
+
+    .round-body {
+      display: none;
+      padding: 0 20px 20px;
+    }
+    .round-block.open .round-body { display: block; }
+
+    .chevron {
+      transition: transform 0.2s;
+      color: var(--text-dim);
+    }
+    .round-block.open .chevron { transform: rotate(180deg); }
+
+    /* --- Agent panels --- */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    .agent-panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .agent-panel-header {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .agent-panel-header .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .agent-panel.claude .agent-panel-header { border-bottom: 2px solid var(--claude); }
+    .agent-panel.claude .dot { background: var(--claude); }
+    .agent-panel.chatgpt .agent-panel-header { border-bottom: 2px solid var(--chatgpt); }
+    .agent-panel.chatgpt .dot { background: var(--chatgpt); }
+    .agent-panel.gemini .agent-panel-header { border-bottom: 2px solid var(--gemini); }
+    .agent-panel.gemini .dot { background: var(--gemini); }
+
+    .agent-panel-body {
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      max-height: 500px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .agent-panel-body.loading {
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    /* --- Final synthesis --- */
+    .final-block {
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+    }
+    .final-block .round-header h3 { color: var(--accent); }
+    .final-body {
+      padding: 20px;
+      font-size: 14px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .final-body.loading {
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    /* --- Scrollbar --- */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* --- Responsive --- */
+    @media (max-width: 900px) {
+      .agents-grid { grid-template-columns: 1fr; }
+      .container { padding: 16px; }
+      .input-row { flex-direction: column; }
+      .input-row .field.small { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Multi-Agent</span> Synthesis</h1>
+  <div class="api-status" id="apiStatus">
+    <span><span class="api-dot" id="dotClaude"></span>Claude</span>
+    <span><span class="api-dot" id="dotChatgpt"></span>ChatGPT</span>
+    <span><span class="api-dot" id="dotGemini"></span>Gemini</span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Input -->
+  <div class="input-section">
+    <div class="input-row">
+      <div class="field">
+        <label>Your Prompt</label>
+        <textarea id="prompt" placeholder="Ask anything... all three agents will collaborate to give you the best answer."></textarea>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="field">
+        <label>Focus Instructions (optional)</label>
+        <input type="text" id="instructions" placeholder="e.g. Focus on practical examples, be concise, prioritize accuracy over creativity...">
+      </div>
+      <div class="field small">
+        <label>Synthesis Rounds</label>
+        <input type="number" id="rounds" value="2" min="1" max="10">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="goBtn" onclick="startSynthesis()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run Synthesis
+      </button>
+      <span id="statusText" style="font-size: 13px; color: var(--text-dim);"></span>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-bar" id="progressBar">
+    <div class="fill" id="progressFill" style="width: 0%"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="rounds-container" id="roundsContainer"></div>
+</div>
+
+<script>
+  // --- Check API status ---
+  async function checkHealth() {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      document.getElementById('dotClaude').classList.toggle('ok', data.claude);
+      document.getElementById('dotChatgpt').classList.toggle('ok', data.chatgpt);
+      document.getElementById('dotGemini').classList.toggle('ok', data.gemini);
+    } catch {}
+  }
+  checkHealth();
+
+  // --- Helpers ---
+  function el(tag, attrs = {}, children = []) {
+    const e = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'className') e.className = v;
+      else if (k === 'innerHTML') e.innerHTML = v;
+      else if (k === 'textContent') e.textContent = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+      else e.setAttribute(k, v);
+    });
+    children.forEach(c => { if (typeof c === 'string') e.appendChild(document.createTextNode(c)); else e.appendChild(c); });
+    return e;
+  }
+
+  function createRoundBlock(round, totalRounds) {
+    const isFinal = round > totalRounds;
+    const block = el('div', { className: isFinal ? 'round-block final-block open' : 'round-block open' });
+
+    const header = el('div', { className: 'round-header' });
+    const title = isFinal
+      ? 'Final Synthesis (Claude)'
+      : round === 0 ? 'Round 0 — Initial Responses' : `Round ${round} — Synthesis`;
+    header.appendChild(el('h3', { textContent: title }));
+
+    const rightSide = el('div', { style: 'display:flex;align-items:center;gap:10px;' });
+    const badge = el('span', { className: 'badge running', textContent: 'Running...' });
+    rightSide.appendChild(badge);
+    rightSide.appendChild(el('span', { className: 'chevron', innerHTML: '&#9660;' }));
+    header.appendChild(rightSide);
+
+    header.addEventListener('click', () => block.classList.toggle('open'));
+    block.appendChild(header);
+
+    if (isFinal) {
+      const body = el('div', { className: 'final-body loading', textContent: 'Waiting for Claude...' });
+      body.id = `final-body`;
+      block.appendChild(body);
+    } else {
+      const body = el('div', { className: 'round-body' });
+      const grid = el('div', { className: 'agents-grid' });
+
+      ['claude', 'chatgpt', 'gemini'].forEach(agent => {
+        const panel = el('div', { className: `agent-panel ${agent}` });
+        const panelHeader = el('div', { className: 'agent-panel-header' });
+        panelHeader.appendChild(el('span', { className: 'dot' }));
+        panelHeader.appendChild(document.createTextNode(agent === 'chatgpt' ? 'ChatGPT' : agent.charAt(0).toUpperCase() + agent.slice(1)));
+        panel.appendChild(panelHeader);
+
+        const panelBody = el('div', { className: 'agent-panel-body loading', textContent: 'Thinking...' });
+        panelBody.id = `r${round}-${agent}`;
+        panel.appendChild(panelBody);
+        grid.appendChild(panel);
+      });
+
+      body.appendChild(grid);
+      block.appendChild(body);
+    }
+
+    block.dataset.round = isFinal ? 'final' : round;
+    return block;
+  }
+
+  // --- Main ---
+  async function startSynthesis() {
+    const prompt = document.getElementById('prompt').value.trim();
+    if (!prompt) return;
+
+    const rounds = parseInt(document.getElementById('rounds').value) || 2;
+    const instructions = document.getElementById('instructions').value.trim();
+    const container = document.getElementById('roundsContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+    const goBtn = document.getElementById('goBtn');
+    const statusText = document.getElementById('statusText');
+
+    container.innerHTML = '';
+    goBtn.disabled = true;
+    progressBar.classList.add('active');
+    progressFill.style.width = '0%';
+
+    const totalSteps = (rounds + 1) * 3 + 1; // rough estimate
+    let completedSteps = 0;
+    const updateProgress = () => {
+      completedSteps++;
+      progressFill.style.width = Math.min(100, (completedSteps / totalSteps) * 100) + '%';
+    };
+
+    // Pre-create round blocks
+    for (let r = 0; r <= rounds; r++) {
+      container.appendChild(createRoundBlock(r, rounds));
+    }
+    // Final
+    container.appendChild(createRoundBlock(rounds + 1, rounds));
+
+    // SSE via fetch + ReadableStream
+    const response = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, rounds, instructions }),
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      let eventType = null;
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7);
+        } else if (line.startsWith('data: ') && eventType) {
+          const data = JSON.parse(line.slice(6));
+          handleEvent(eventType, data, rounds, statusText, updateProgress);
+          eventType = null;
+        }
+      }
+    }
+
+    goBtn.disabled = false;
+    progressFill.style.width = '100%';
+    statusText.textContent = 'Done!';
+    setTimeout(() => { progressBar.classList.remove('active'); statusText.textContent = ''; }, 2000);
+  }
+
+  function handleEvent(event, data, totalRounds, statusText) {
+    switch (event) {
+      case 'round-start': {
+        const label = data.isFinal ? 'Final synthesis...' : `Round ${data.round}...`;
+        statusText.textContent = label;
+        break;
+      }
+      case 'agent-start': {
+        if (data.isFinal) {
+          const body = document.getElementById('final-body');
+          if (body) { body.textContent = 'Claude is synthesizing...'; body.className = 'final-body loading'; }
+        }
+        break;
+      }
+      case 'agent-done': {
+        if (data.isFinal) {
+          const body = document.getElementById('final-body');
+          if (body) { body.textContent = data.result; body.className = 'final-body'; }
+        } else {
+          const panel = document.getElementById(`r${data.round}-${data.agent}`);
+          if (panel) { panel.textContent = data.result; panel.className = 'agent-panel-body'; }
+        }
+        break;
+      }
+      case 'agent-error': {
+        if (data.isFinal) {
+          const body = document.getElementById('final-body');
+          if (body) { body.textContent = `Error: ${data.error}`; body.className = 'final-body'; body.style.color = '#ef4444'; }
+        } else {
+          const panel = document.getElementById(`r${data.round}-${data.agent}`);
+          if (panel) { panel.textContent = `Error: ${data.error}`; panel.className = 'agent-panel-body'; panel.style.color = '#ef4444'; }
+        }
+        break;
+      }
+      case 'round-done': {
+        // Update badge
+        const selector = data.isFinal ? '[data-round="final"]' : `[data-round="${data.round}"]`;
+        const block = document.querySelector(selector);
+        if (block) {
+          const badge = block.querySelector('.badge');
+          if (badge) { badge.textContent = 'Complete'; badge.className = 'badge done'; }
+          // Collapse non-final completed rounds, keep most recent open
+          if (!data.isFinal && data.round < totalRounds) {
+            block.classList.remove('open');
+          }
+        }
+        break;
+      }
+      case 'done': {
+        // Expand the final block
+        const finalBlock = document.querySelector('[data-round="final"]');
+        if (finalBlock) finalBlock.classList.add('open');
+        break;
+      }
+    }
+  }
+</script>
+
+</body>
+</html>
