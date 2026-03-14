@@ -11,7 +11,7 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(join(__dirname, 'public')));
 
-// --- API clients (lazy-initialized on first request) ---
+// --- API clients (lazy-initialized) ---
 
 let anthropic, openai, genAI;
 
@@ -32,7 +32,7 @@ function initClients() {
 async function callClaude(systemPrompt, userMessage) {
   if (!anthropic) throw new Error('Anthropic API key not configured');
   const resp = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-opus-4-5',
     max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: 'user', content: userMessage }],
@@ -63,84 +63,199 @@ async function callGemini(systemPrompt, userMessage) {
   return result.response.text();
 }
 
-const AGENTS = {
-  claude: callClaude,
-  chatgpt: callChatGPT,
-  gemini: callGemini,
+const AGENT_CALLERS = [callClaude, callChatGPT, callGemini];
+const AGENT_NAMES   = ['claude', 'chatgpt', 'gemini'];
+
+// --- Role rotation system ---
+// Minimum 3 rounds so every agent does every role exactly once per cycle.
+
+const ROLES = ['Skeptic', 'Builder', 'Connector'];
+
+// Round is 1-indexed (synthesis rounds). Rotation shifts one seat each round.
+function getRole(agentIndex, round) {
+  return ROLES[(agentIndex + round - 1) % 3];
+}
+
+// Odd synthesis rounds = COMPRESS, even = EXPAND
+function isCompressRound(round) {
+  return round % 2 === 1;
+}
+
+const ROLE_INSTRUCTIONS = {
+  Skeptic: `\
+YOUR ROLE THIS ROUND: SKEPTIC (Antithesis)
+Your primary task is to challenge the previous responses rigorously. Hunt for:
+- Flaws in reasoning, logical leaps, or circular arguments
+- Unstated assumptions that may not hold under scrutiny
+- Edge cases and counterexamples that break or limit the conclusions
+- Claims that are overconfident, vague, or under-supported
+
+After identifying what doesn't hold, build your response from what survives scrutiny. You are the antithesis — make every conclusion earn its place.`,
+
+  Builder: `\
+YOUR ROLE THIS ROUND: BUILDER (Extension)
+Your primary task is to extend. Identify the single strongest idea across all previous responses and develop it significantly further:
+- Add depth, specificity, and nuance it currently lacks
+- Explore second-order effects and downstream implications
+- Supply concrete mechanisms, not just high-level assertions
+- Push into territory no previous response has entered
+
+Do not summarize — build on the strongest foundation and add new structure above it.`,
+
+  Connector: `\
+YOUR ROLE THIS ROUND: CONNECTOR (Bridge & Emergence)
+Your primary task is to bridge. Look for:
+- Non-obvious connections between ideas that appeared unrelated
+- Apparent contradictions that can both be true simultaneously at different levels
+- The unifying pattern beneath what others treated as separate threads
+- Whether convergence across agents is genuine insight or lazy consensus
+
+Your most important job is detecting EMERGENCE: the idea that only becomes visible when you combine the previous responses — something more than the sum of parts.`,
 };
 
-// --- SSE endpoint for the full synthesis pipeline ---
+const UNIVERSAL_CONSTRAINTS = (round) => {
+  const passType = isCompressRound(round)
+    ? `COMPRESSION PASS (Round ${round} is odd): After your main response, add a "CORE INSIGHT:" section — express the single irreducible idea in 2–3 sentences maximum. Cut everything that is not load-bearing.`
+    : `EXPANSION PASS (Round ${round} is even): After your main response, add an "APPLICATIONS:" section — give exactly 3 concrete, specific real-world examples of how the core insight applies in practice. No generalities.`;
+
+  return `\
+UNIVERSAL CONSTRAINTS — apply regardless of role:
+
+1. DISPUTE: Before synthesizing, explicitly call out at least one substantive point where you genuinely disagree with the previous round's responses. Label it "DISPUTE:". This must be a real intellectual objection, not a minor quibble.
+
+2. CONFIDENCE LABELS: Tag every key claim with [HIGH], [MED], or [LOW]. For any MED or LOW rating, add a one-phrase reason (e.g. [MED – limited evidence], [LOW – untested assumption]).
+
+3. EMERGENCE: Close your response with an "EMERGENCE:" section naming one genuinely new idea that only appears from combining the previous responses — something not fully present in any single prior answer.
+
+4. ${passType}`;
+};
+
+function buildSynthesisPrompt(baseInstructions, round, agentIndex, previousResponses, originalPrompt) {
+  const role = getRole(agentIndex, round);
+
+  const collated = AGENT_NAMES
+    .map(name => `=== ${name.toUpperCase()} ===\n${previousResponses[name]}`)
+    .join('\n\n');
+
+  const systemPrompt = [
+    `You are participating in round ${round} of a structured multi-agent synthesis.`,
+    `Three agents — Claude, ChatGPT, and Gemini — are collaboratively refining the best possible answer through role-differentiated critique and synthesis.`,
+    baseInstructions ? `\nUser focus: ${baseInstructions}\n` : '',
+    ROLE_INSTRUCTIONS[role],
+    '',
+    UNIVERSAL_CONSTRAINTS(round),
+  ].join('\n');
+
+  const userMsg = [
+    `ORIGINAL PROMPT:\n${originalPrompt}`,
+    `\nPREVIOUS ROUND (Round ${round - 1}) RESPONSES:\n${collated}`,
+    `\nRespond now according to your role (${role}) and all universal constraints.`,
+  ].join('\n');
+
+  return { systemPrompt, userMsg, role };
+}
+
+function buildFinalPrompt(baseInstructions, totalRounds, previousResponses, originalPrompt) {
+  const collated = AGENT_NAMES
+    .map(name => `=== ${name.toUpperCase()} ===\n${previousResponses[name]}`)
+    .join('\n\n');
+
+  const systemPrompt = [
+    `You are the final synthesizer in a ${totalRounds}-round multi-agent collaborative process.`,
+    `Each round used structured role rotation (Skeptic → Builder → Connector) with forced disagreement, confidence labeling, emergence detection, and alternating compression/expansion passes.`,
+    baseInstructions ? `\nUser focus: ${baseInstructions}\n` : '',
+    `Your task: produce the single definitive answer. This is not another synthesis round — it is the conclusion. Requirements:`,
+    `- Distill the highest-confidence insights that survived multi-round scrutiny`,
+    `- Resolve any remaining contradictions with explicit reasoning`,
+    `- Incorporate the strongest EMERGENCE and CORE INSIGHT findings from across all rounds`,
+    `- Be precise, well-structured, and complete — this is the final word`,
+    `- Do not hedge unless genuine uncertainty remains after ${totalRounds} rounds of challenge`,
+  ].join('\n');
+
+  const userMsg = [
+    `ORIGINAL PROMPT:\n${originalPrompt}`,
+    `\nFINAL ROUND RESPONSES (after ${totalRounds} synthesis rounds):\n${collated}`,
+    `\nProduce the definitive answer.`,
+  ].join('\n');
+
+  return { systemPrompt, userMsg };
+}
+
+// --- SSE streaming endpoint ---
 
 app.post('/api/synthesize', async (req, res) => {
   initClients();
 
-  const { prompt, rounds = 2, instructions = '' } = req.body;
+  let { prompt, rounds = 3, instructions = '' } = req.body;
 
-  // SSE setup
+  // Enforce minimum 3 rounds for full role rotation coverage
+  rounds = Math.max(3, parseInt(rounds) || 3);
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const send = (event, data) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-  };
-
-  const baseSystem = instructions
-    ? `Follow these instructions when generating your response:\n${instructions}\n\n`
-    : '';
+  const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
   try {
     let previousResponses = null;
 
+    // Rounds 0..rounds: Round 0 = initial, 1..rounds = synthesis, final = after
     for (let round = 0; round <= rounds; round++) {
       const isFinalRound = round === rounds;
-      send('round-start', { round, isFinal: isFinalRound });
-
-      // Build the user message for this round
-      let userMsg;
-      if (round === 0) {
-        userMsg = prompt;
-      } else {
-        const collated = Object.entries(previousResponses)
-          .map(([name, text]) => `=== ${name.toUpperCase()} ===\n${text}`)
-          .join('\n\n');
-        userMsg = `Original prompt:\n${prompt}\n\nHere are the ${round === 1 ? 'initial' : 'previous round\'s'} responses from all three agents:\n\n${collated}\n\nSynthesize the best elements from all three responses into a single, improved answer. Keep what's strongest, discard what's weak, and resolve any contradictions.`;
-      }
+      send('round-start', { round, isFinal: isFinalRound, totalRounds: rounds });
 
       if (isFinalRound) {
-        // Final round: Claude only
-        const systemPrompt = `${baseSystem}You are the final synthesizer. You have seen multiple rounds of collaborative refinement between three AI agents (Claude, ChatGPT, Gemini). Produce the definitive, best possible answer. Be thorough, precise, and well-structured.`;
-        send('agent-start', { round, agent: 'claude', isFinal: true });
+        // Final synthesis — Claude only
+        const { systemPrompt, userMsg } = buildFinalPrompt(instructions, rounds, previousResponses, prompt);
+        send('agent-start', { round, agent: 'claude', role: 'Synthesizer', isFinal: true });
         try {
           const result = await callClaude(systemPrompt, userMsg);
-          send('agent-done', { round, agent: 'claude', result, isFinal: true });
+          send('agent-done', { round, agent: 'claude', role: 'Synthesizer', result, isFinal: true });
         } catch (err) {
-          send('agent-error', { round, agent: 'claude', error: err.message, isFinal: true });
+          send('agent-error', { round, agent: 'claude', role: 'Synthesizer', error: err.message, isFinal: true });
         }
-      } else {
-        // Regular round: all 3 agents in parallel
-        const systemPrompt = round === 0
-          ? `${baseSystem}You are a helpful, knowledgeable assistant. Provide a thorough, well-reasoned response.`
-          : `${baseSystem}You are participating in a multi-agent collaborative synthesis. Review all three previous responses and produce an improved, synthesized answer.`;
 
-        const agentNames = ['claude', 'chatgpt', 'gemini'];
+      } else if (round === 0) {
+        // Round 0 — independent ideation, no roles yet
+        const systemPrompt = [
+          `You are a helpful, knowledgeable assistant.`,
+          instructions ? `Focus: ${instructions}` : '',
+          `Provide a thorough, well-reasoned response. This is the ideation round — be comprehensive and creative.`,
+        ].filter(Boolean).join('\n');
+
         const results = {};
-
-        // Launch all 3 in parallel
-        const promises = agentNames.map(async (name) => {
-          send('agent-start', { round, agent: name });
+        await Promise.all(AGENT_NAMES.map(async (name, i) => {
+          send('agent-start', { round, agent: name, role: 'Ideation' });
           try {
-            const result = await AGENTS[name](systemPrompt, userMsg);
+            const result = await AGENT_CALLERS[i](systemPrompt, prompt);
             results[name] = result;
-            send('agent-done', { round, agent: name, result });
+            send('agent-done', { round, agent: name, role: 'Ideation', result });
           } catch (err) {
             results[name] = `[Error: ${err.message}]`;
-            send('agent-error', { round, agent: name, error: err.message });
+            send('agent-error', { round, agent: name, role: 'Ideation', error: err.message });
           }
-        });
+        }));
+        previousResponses = results;
 
-        await Promise.all(promises);
+      } else {
+        // Synthesis rounds 1..rounds-1
+        const results = {};
+        await Promise.all(AGENT_NAMES.map(async (name, i) => {
+          const { systemPrompt, userMsg, role } = buildSynthesisPrompt(
+            instructions, round, i, previousResponses, prompt
+          );
+          send('agent-start', { round, agent: name, role });
+          try {
+            const result = await AGENT_CALLERS[i](systemPrompt, userMsg);
+            results[name] = result;
+            send('agent-done', { round, agent: name, role, result });
+          } catch (err) {
+            results[name] = `[Error: ${err.message}]`;
+            send('agent-error', { round, agent: name, role, error: err.message });
+          }
+        }));
         previousResponses = results;
       }
 
@@ -155,17 +270,10 @@ app.post('/api/synthesize', async (req, res) => {
   res.end();
 });
 
-// Health check
 app.get('/api/health', (req, res) => {
   initClients();
-  res.json({
-    claude: !!anthropic,
-    chatgpt: !!openai,
-    gemini: !!genAI,
-  });
+  res.json({ claude: !!anthropic, chatgpt: !!openai, gemini: !!genAI });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Multi-Agent Synthesis running at http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Multi-Agent Synthesis → http://localhost:${PORT}`));
