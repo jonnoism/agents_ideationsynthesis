@@ -611,8 +611,8 @@ let activeController = null;
 
 function stopSynthesis() {
   if (activeController) {
+    document.getElementById('statusText').textContent = 'Stopping…';
     activeController.abort();
-    activeController = null;
   }
 }
 
@@ -658,6 +658,11 @@ async function startSynthesis() {
       signal: activeController.signal,
     });
 
+    if (!response.ok) {
+      const msg = await response.text().catch(() => response.statusText);
+      throw new Error(`Server error ${response.status}: ${msg}`);
+    }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
@@ -683,7 +688,20 @@ async function startSynthesis() {
       }
     }
   } catch (err) {
-    if (err.name !== 'AbortError') {
+    if (err.name === 'AbortError') {
+      // User clicked Stop — mark any still-pending panels immediately
+      document.querySelectorAll('.agent-panel-body.loading').forEach(el => {
+        el.textContent = 'Stopped.';
+        el.className = 'agent-panel-body';
+        el.style.color = 'var(--text-dim)';
+      });
+      const fb = document.getElementById('final-body');
+      if (fb && fb.classList.contains('loading')) {
+        fb.textContent = 'Stopped.'; fb.className = 'final-body';
+        fb.style.color = 'var(--text-dim)';
+      }
+      document.getElementById('statusText').textContent = 'Stopped';
+    } else {
       document.getElementById('statusText').textContent = `Error: ${err.message}`;
     }
   }
@@ -692,9 +710,11 @@ async function startSynthesis() {
   goBtn.style.display = '';
   stopBtn.style.display = 'none';
 
-  const wasTerminated = document.getElementById('statusText').textContent === 'Stopping…';
   progressFill.style.width = '100%';
-  document.getElementById('statusText').textContent = wasTerminated ? 'Stopped' : 'Complete';
+  const finalStatus = document.getElementById('statusText').textContent;
+  if (finalStatus !== 'Stopped' && !finalStatus.startsWith('Error')) {
+    document.getElementById('statusText').textContent = 'Complete';
+  }
   setTimeout(() => {
     progressBar.classList.remove('active');
     progressFill.style.width = '0%';

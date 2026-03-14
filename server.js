@@ -191,7 +191,9 @@ app.post('/api/synthesize', async (req, res) => {
   const { signal } = controller;
 
   // Client disconnected (Stop button / browser close) → abort all in-flight calls
-  req.on('close', () => controller.abort());
+  // Use res.on('close') not req.on('close'): req fires as soon as the request body
+  // is consumed by express.json(), which would abort the controller immediately.
+  res.on('close', () => controller.abort());
 
   const send = (event, data) => {
     if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
