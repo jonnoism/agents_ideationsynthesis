@@ -29,27 +29,29 @@ function initClients() {
 
 // --- Individual agent callers ---
 
-async function callClaude(systemPrompt, userMessage, signal) {
+// maxTokens defaults: 8192 for regular rounds, 16384 for final synthesis
+
+async function callClaude(systemPrompt, userMessage, signal, maxTokens = 8192) {
   if (!anthropic) throw new Error('Anthropic API key not configured');
   const resp = await anthropic.messages.create(
-    { model: 'claude-opus-4-5', max_tokens: 32768, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] },
+    { model: 'claude-opus-4-5', max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] },
     { signal }
   );
   return resp.content[0].text;
 }
 
-async function callChatGPT(systemPrompt, userMessage, signal) {
+async function callChatGPT(systemPrompt, userMessage, signal, maxTokens = 8192) {
   if (!openai) throw new Error('OpenAI API key not configured');
   const resp = await openai.chat.completions.create(
-    { model: 'gpt-4o', max_tokens: 16384, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
+    { model: 'gpt-4o', max_tokens: maxTokens, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
     { signal }
   );
   return resp.choices[0].message.content;
 }
 
-async function callGemini(systemPrompt, userMessage, signal) {
+async function callGemini(systemPrompt, userMessage, signal, maxTokens = 8192) {
   if (!genAI) throw new Error('Gemini API key not configured');
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt, generationConfig: { maxOutputTokens: 8192 } });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt, generationConfig: { maxOutputTokens: maxTokens } });
   const result = await model.generateContent(userMessage, { signal });
   return result.response.text();
 }
@@ -210,7 +212,7 @@ app.post('/api/synthesize', async (req, res) => {
         const { systemPrompt, userMsg } = buildFinalPrompt(instructions, rounds, previousResponses, prompt);
         send('agent-start', { round, agent: 'claude', role: 'Synthesizer', isFinal: true });
         try {
-          const result = await callClaude(systemPrompt, userMsg, signal);
+          const result = await callClaude(systemPrompt, userMsg, signal, 16384);
           send('agent-done', { round, agent: 'claude', role: 'Synthesizer', result, isFinal: true });
         } catch (err) {
           if (!isAbort(err)) send('agent-error', { round, agent: 'claude', role: 'Synthesizer', error: err.message, isFinal: true });
