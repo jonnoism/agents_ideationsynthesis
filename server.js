@@ -32,7 +32,7 @@ function initClients() {
 async function callClaude(systemPrompt, userMessage, signal) {
   if (!anthropic) throw new Error('Anthropic API key not configured');
   const resp = await anthropic.messages.create(
-    { model: 'claude-opus-4-5', max_tokens: 4096, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] },
+    { model: 'claude-opus-4-5', max_tokens: 32768, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] },
     { signal }
   );
   return resp.content[0].text;
@@ -41,7 +41,7 @@ async function callClaude(systemPrompt, userMessage, signal) {
 async function callChatGPT(systemPrompt, userMessage, signal) {
   if (!openai) throw new Error('OpenAI API key not configured');
   const resp = await openai.chat.completions.create(
-    { model: 'gpt-4o', max_tokens: 4096, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
+    { model: 'gpt-4o', max_tokens: 16384, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
     { signal }
   );
   return resp.choices[0].message.content;
@@ -49,7 +49,7 @@ async function callChatGPT(systemPrompt, userMessage, signal) {
 
 async function callGemini(systemPrompt, userMessage, signal) {
   if (!genAI) throw new Error('Gemini API key not configured');
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt, generationConfig: { maxOutputTokens: 8192 } });
   const result = await model.generateContent(userMessage, { signal });
   return result.response.text();
 }
