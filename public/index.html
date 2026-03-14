@@ -17,6 +17,13 @@
       --gemini: #74a5d4;
       --accent: #a78bfa;
       --accent-dim: #7c5cbf;
+      --skeptic: #f87171;
+      --builder: #fb923c;
+      --connector: #34d399;
+      --ideation: #94a3b8;
+      --synthesizer: #a78bfa;
+      --compress: #60a5fa;
+      --expand: #f59e0b;
       --radius: 12px;
     }
 
@@ -37,62 +44,44 @@
       padding: 16px 32px;
       border-bottom: 1px solid var(--border);
       background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    .header h1 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
+    .header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
     .header h1 span { color: var(--accent); }
-    .api-status {
-      display: flex;
-      gap: 12px;
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-    .api-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 4px;
-      background: #ef4444;
-    }
+    .api-status { display: flex; gap: 14px; font-size: 12px; color: var(--text-dim); align-items: center; }
+    .api-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; background: #ef4444; }
     .api-dot.ok { background: #22c55e; }
 
-    /* --- Main layout --- */
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 24px 32px;
-    }
+    /* --- Container --- */
+    .container { max-width: 1440px; margin: 0 auto; padding: 24px 32px; }
 
     /* --- Input section --- */
     .input-section {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 24px;
+      padding: 22px;
+      margin-bottom: 20px;
     }
-    .input-row {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-    .input-row .field { flex: 1; }
-    .input-row .field.small { flex: 0 0 120px; }
+    .input-row { display: flex; gap: 14px; margin-bottom: 14px; }
+    .input-row:last-child { margin-bottom: 0; }
+    .field { flex: 1; }
+    .field.small { flex: 0 0 130px; }
 
     label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--text-dim);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
       margin-bottom: 6px;
     }
+    .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
 
-    textarea, input, select {
+    textarea, input[type=text], input[type=number] {
       width: 100%;
       background: var(--surface2);
       border: 1px solid var(--border);
@@ -105,13 +94,13 @@
       transition: border-color 0.2s;
     }
     textarea:focus, input:focus { border-color: var(--accent); }
-    textarea { resize: vertical; min-height: 80px; }
+    textarea { resize: vertical; min-height: 90px; }
 
     .btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 28px;
+      padding: 11px 26px;
       background: var(--accent);
       color: #fff;
       border: none;
@@ -119,165 +108,211 @@
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s, opacity 0.2s;
+      transition: background 0.15s, opacity 0.15s;
     }
-    .btn:hover { background: var(--accent-dim); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { background: var(--accent-dim); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-row { display: flex; gap: 12px; align-items: center; }
+    .status-text { font-size: 13px; color: var(--text-dim); }
+
+    /* --- Rotation preview table --- */
+    .rotation-preview {
+      margin-bottom: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .rotation-preview h4 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 12px;
+    }
+    .rotation-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .rotation-table th {
+      text-align: left;
+      padding: 5px 12px;
+      color: var(--text-dim);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .rotation-table td { padding: 6px 12px; }
+    .rotation-table tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    .rotation-table .agent-col { color: var(--text-dim); font-weight: 500; }
 
     /* --- Progress bar --- */
     .progress-bar {
-      height: 3px;
+      height: 2px;
       background: var(--border);
       border-radius: 2px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       overflow: hidden;
-      display: none;
+      opacity: 0;
+      transition: opacity 0.3s;
     }
-    .progress-bar.active { display: block; }
+    .progress-bar.active { opacity: 1; }
     .progress-bar .fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--claude), var(--chatgpt), var(--gemini));
-      background-size: 200% 100%;
-      animation: shimmer 1.5s ease infinite;
-      transition: width 0.4s ease;
+      background: linear-gradient(90deg, var(--claude), var(--chatgpt), var(--gemini), var(--accent));
+      background-size: 300% 100%;
+      animation: shimmer 2s linear infinite;
+      transition: width 0.5s ease;
     }
     @keyframes shimmer {
-      0% { background-position: 200% 0; }
+      0%   { background-position: 100% 0; }
       100% { background-position: -200% 0; }
     }
 
-    /* --- Rounds --- */
-    .rounds-container {}
-
+    /* --- Round blocks --- */
     .round-block {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       overflow: hidden;
     }
+    .round-block.final { border-color: var(--accent); border-width: 2px; }
+
     .round-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 14px 20px;
+      gap: 12px;
+      padding: 13px 18px;
       cursor: pointer;
       user-select: none;
       background: var(--surface);
-      transition: background 0.2s;
+      transition: background 0.15s;
     }
     .round-header:hover { background: var(--surface2); }
-    .round-header h3 {
-      font-size: 14px;
-      font-weight: 600;
+    .round-header h3 { font-size: 14px; font-weight: 600; flex: 1; }
+    .round-block.final .round-header h3 { color: var(--accent); }
+
+    .round-meta { display: flex; align-items: center; gap: 8px; }
+
+    /* pass badge */
+    .pass-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 4px;
     }
-    .round-header .badge {
+    .pass-badge.compress { background: rgba(96,165,250,0.15); color: var(--compress); }
+    .pass-badge.expand   { background: rgba(245,158,11,0.15);  color: var(--expand); }
+
+    .status-badge {
       font-size: 11px;
-      padding: 3px 10px;
+      padding: 2px 10px;
       border-radius: 20px;
       font-weight: 600;
     }
-    .badge.running {
-      background: rgba(167,139,250,0.15);
-      color: var(--accent);
-    }
-    .badge.done {
-      background: rgba(34,197,94,0.15);
-      color: #22c55e;
-    }
+    .status-badge.running { background: rgba(167,139,250,0.15); color: var(--accent); }
+    .status-badge.done    { background: rgba(34,197,94,0.15);   color: #22c55e; }
 
-    .round-body {
-      display: none;
-      padding: 0 20px 20px;
-    }
-    .round-block.open .round-body { display: block; }
-
-    .chevron {
-      transition: transform 0.2s;
-      color: var(--text-dim);
-    }
+    .chevron { transition: transform 0.2s; color: var(--text-dim); font-size: 11px; }
     .round-block.open .chevron { transform: rotate(180deg); }
 
-    /* --- Agent panels --- */
+    .round-body { display: none; padding: 0 18px 18px; }
+    .round-block.open .round-body { display: block; }
+
+    /* --- Agent grid --- */
     .agents-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
+      gap: 12px;
     }
     .agent-panel {
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .agent-panel-header {
-      padding: 10px 14px;
-      font-size: 12px;
+      padding: 9px 13px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-shrink: 0;
     }
-    .agent-panel-header .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
+    .agent-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .agent-label { flex: 1; }
+    .role-chip {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
-    .agent-panel.claude .agent-panel-header { border-bottom: 2px solid var(--claude); }
-    .agent-panel.claude .dot { background: var(--claude); }
+
+    /* Agent color theming */
+    .agent-panel.claude .agent-panel-header  { border-bottom: 2px solid var(--claude); }
+    .agent-panel.claude .agent-dot           { background: var(--claude); }
     .agent-panel.chatgpt .agent-panel-header { border-bottom: 2px solid var(--chatgpt); }
-    .agent-panel.chatgpt .dot { background: var(--chatgpt); }
-    .agent-panel.gemini .agent-panel-header { border-bottom: 2px solid var(--gemini); }
-    .agent-panel.gemini .dot { background: var(--gemini); }
+    .agent-panel.chatgpt .agent-dot          { background: var(--chatgpt); }
+    .agent-panel.gemini .agent-panel-header  { border-bottom: 2px solid var(--gemini); }
+    .agent-panel.gemini .agent-dot           { background: var(--gemini); }
+
+    /* Role chip colors */
+    .role-chip.Skeptic    { background: rgba(248,113,113,0.15); color: var(--skeptic); }
+    .role-chip.Builder    { background: rgba(251,146,60,0.15);  color: var(--builder); }
+    .role-chip.Connector  { background: rgba(52,211,153,0.15);  color: var(--connector); }
+    .role-chip.Ideation   { background: rgba(148,163,184,0.12); color: var(--ideation); }
+    .role-chip.Synthesizer { background: rgba(167,139,250,0.15); color: var(--synthesizer); }
 
     .agent-panel-body {
-      padding: 14px;
+      padding: 13px;
       font-size: 13px;
-      line-height: 1.7;
+      line-height: 1.75;
       color: var(--text);
-      max-height: 500px;
+      max-height: 480px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-wrap: break-word;
+      flex: 1;
     }
-    .agent-panel-body.loading {
-      color: var(--text-dim);
-      font-style: italic;
-    }
+    .agent-panel-body.loading { color: var(--text-dim); font-style: italic; }
+    .agent-panel-body.error   { color: #f87171; }
 
-    /* --- Final synthesis --- */
-    .final-block {
-      background: var(--surface);
-      border: 2px solid var(--accent);
-      border-radius: var(--radius);
-      margin-bottom: 16px;
-    }
-    .final-block .round-header h3 { color: var(--accent); }
+    /* --- Final panel --- */
     .final-body {
       padding: 20px;
       font-size: 14px;
-      line-height: 1.8;
+      line-height: 1.85;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-    .final-body.loading {
-      color: var(--text-dim);
-      font-style: italic;
+    .final-body.loading { color: var(--text-dim); font-style: italic; }
+    .final-header-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px 14px;
     }
+    .final-header-row .agent-dot { width: 8px; height: 8px; background: var(--claude); }
 
     /* --- Scrollbar --- */
-    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     /* --- Responsive --- */
-    @media (max-width: 900px) {
+    @media (max-width: 960px) {
       .agents-grid { grid-template-columns: 1fr; }
       .container { padding: 16px; }
       .input-row { flex-direction: column; }
-      .input-row .field.small { flex: 1; }
+      .field.small { flex: 1; }
+      .header { padding: 12px 16px; }
     }
   </style>
 </head>
@@ -285,7 +320,7 @@
 
 <div class="header">
   <h1><span>Multi-Agent</span> Synthesis</h1>
-  <div class="api-status" id="apiStatus">
+  <div class="api-status">
     <span><span class="api-dot" id="dotClaude"></span>Claude</span>
     <span><span class="api-dot" id="dotChatgpt"></span>ChatGPT</span>
     <span><span class="api-dot" id="dotGemini"></span>Gemini</span>
@@ -293,150 +328,294 @@
 </div>
 
 <div class="container">
+
   <!-- Input -->
   <div class="input-section">
     <div class="input-row">
       <div class="field">
-        <label>Your Prompt</label>
-        <textarea id="prompt" placeholder="Ask anything... all three agents will collaborate to give you the best answer."></textarea>
+        <label>Prompt</label>
+        <textarea id="prompt" placeholder="Ask anything — all three agents will independently ideate, then collaboratively synthesize across structured roles."></textarea>
       </div>
     </div>
     <div class="input-row">
       <div class="field">
-        <label>Focus Instructions (optional)</label>
-        <input type="text" id="instructions" placeholder="e.g. Focus on practical examples, be concise, prioritize accuracy over creativity...">
+        <label>Focus Instructions <span style="font-weight:400;text-transform:none;">(optional)</span></label>
+        <input type="text" id="instructions" placeholder="e.g. Prioritize practical examples, be concise, focus on technical accuracy...">
       </div>
       <div class="field small">
         <label>Synthesis Rounds</label>
-        <input type="number" id="rounds" value="2" min="1" max="10">
+        <input type="number" id="rounds" value="3" min="3" max="12">
+        <div class="hint">Min 3 for full role rotation</div>
       </div>
     </div>
-    <div class="btn-row">
+    <div class="btn-row" style="margin-top:14px;">
       <button class="btn" id="goBtn" onclick="startSynthesis()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Run Synthesis
       </button>
-      <span id="statusText" style="font-size: 13px; color: var(--text-dim);"></span>
+      <span class="status-text" id="statusText"></span>
     </div>
+  </div>
+
+  <!-- Rotation preview -->
+  <div class="rotation-preview" id="rotationPreview">
+    <h4>Role rotation plan</h4>
+    <table class="rotation-table" id="rotationTable"></table>
   </div>
 
   <!-- Progress -->
   <div class="progress-bar" id="progressBar">
-    <div class="fill" id="progressFill" style="width: 0%"></div>
+    <div class="fill" id="progressFill" style="width:0%"></div>
   </div>
 
   <!-- Results -->
-  <div class="rounds-container" id="roundsContainer"></div>
+  <div id="roundsContainer"></div>
+
 </div>
 
 <script>
-  // --- Check API status ---
-  async function checkHealth() {
-    try {
-      const res = await fetch('/api/health');
-      const data = await res.json();
-      document.getElementById('dotClaude').classList.toggle('ok', data.claude);
-      document.getElementById('dotChatgpt').classList.toggle('ok', data.chatgpt);
-      document.getElementById('dotGemini').classList.toggle('ok', data.gemini);
-    } catch {}
+// --- Constants (must match server.js) ---
+const ROLES = ['Skeptic', 'Builder', 'Connector'];
+const AGENTS = ['claude', 'chatgpt', 'gemini'];
+const AGENT_LABELS = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini' };
+
+function getRole(agentIndex, round) {
+  return ROLES[(agentIndex + round - 1) % 3];
+}
+function isCompressRound(round) { return round % 2 === 1; }
+
+// --- API status check ---
+async function checkHealth() {
+  try {
+    const d = await fetch('/api/health').then(r => r.json());
+    document.getElementById('dotClaude').classList.toggle('ok', d.claude);
+    document.getElementById('dotChatgpt').classList.toggle('ok', d.chatgpt);
+    document.getElementById('dotGemini').classList.toggle('ok', d.gemini);
+  } catch {}
+}
+checkHealth();
+
+// --- Rotation table ---
+function renderRotationTable() {
+  const rounds = Math.max(3, parseInt(document.getElementById('rounds').value) || 3);
+  const table = document.getElementById('rotationTable');
+
+  let html = '<thead><tr><th>Agent</th>';
+  for (let r = 0; r <= rounds; r++) {
+    html += r === 0 ? '<th>Round 0</th>'
+          : r === rounds ? '<th>Final</th>'
+          : `<th>Round ${r} ${isCompressRound(r) ? '🗜' : '🔭'}</th>`;
   }
-  checkHealth();
+  html += '</tr></thead><tbody>';
 
-  // --- Helpers ---
-  function el(tag, attrs = {}, children = []) {
-    const e = document.createElement(tag);
-    Object.entries(attrs).forEach(([k, v]) => {
-      if (k === 'className') e.className = v;
-      else if (k === 'innerHTML') e.innerHTML = v;
-      else if (k === 'textContent') e.textContent = v;
-      else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
-      else e.setAttribute(k, v);
-    });
-    children.forEach(c => { if (typeof c === 'string') e.appendChild(document.createTextNode(c)); else e.appendChild(c); });
-    return e;
-  }
-
-  function createRoundBlock(round, totalRounds) {
-    const isFinal = round > totalRounds;
-    const block = el('div', { className: isFinal ? 'round-block final-block open' : 'round-block open' });
-
-    const header = el('div', { className: 'round-header' });
-    const title = isFinal
-      ? 'Final Synthesis (Claude)'
-      : round === 0 ? 'Round 0 — Initial Responses' : `Round ${round} — Synthesis`;
-    header.appendChild(el('h3', { textContent: title }));
-
-    const rightSide = el('div', { style: 'display:flex;align-items:center;gap:10px;' });
-    const badge = el('span', { className: 'badge running', textContent: 'Running...' });
-    rightSide.appendChild(badge);
-    rightSide.appendChild(el('span', { className: 'chevron', innerHTML: '&#9660;' }));
-    header.appendChild(rightSide);
-
-    header.addEventListener('click', () => block.classList.toggle('open'));
-    block.appendChild(header);
-
-    if (isFinal) {
-      const body = el('div', { className: 'final-body loading', textContent: 'Waiting for Claude...' });
-      body.id = `final-body`;
-      block.appendChild(body);
-    } else {
-      const body = el('div', { className: 'round-body' });
-      const grid = el('div', { className: 'agents-grid' });
-
-      ['claude', 'chatgpt', 'gemini'].forEach(agent => {
-        const panel = el('div', { className: `agent-panel ${agent}` });
-        const panelHeader = el('div', { className: 'agent-panel-header' });
-        panelHeader.appendChild(el('span', { className: 'dot' }));
-        panelHeader.appendChild(document.createTextNode(agent === 'chatgpt' ? 'ChatGPT' : agent.charAt(0).toUpperCase() + agent.slice(1)));
-        panel.appendChild(panelHeader);
-
-        const panelBody = el('div', { className: 'agent-panel-body loading', textContent: 'Thinking...' });
-        panelBody.id = `r${round}-${agent}`;
-        panel.appendChild(panelBody);
-        grid.appendChild(panel);
-      });
-
-      body.appendChild(grid);
-      block.appendChild(body);
-    }
-
-    block.dataset.round = isFinal ? 'final' : round;
-    return block;
-  }
-
-  // --- Main ---
-  async function startSynthesis() {
-    const prompt = document.getElementById('prompt').value.trim();
-    if (!prompt) return;
-
-    const rounds = parseInt(document.getElementById('rounds').value) || 2;
-    const instructions = document.getElementById('instructions').value.trim();
-    const container = document.getElementById('roundsContainer');
-    const progressBar = document.getElementById('progressBar');
-    const progressFill = document.getElementById('progressFill');
-    const goBtn = document.getElementById('goBtn');
-    const statusText = document.getElementById('statusText');
-
-    container.innerHTML = '';
-    goBtn.disabled = true;
-    progressBar.classList.add('active');
-    progressFill.style.width = '0%';
-
-    const totalSteps = (rounds + 1) * 3 + 1; // rough estimate
-    let completedSteps = 0;
-    const updateProgress = () => {
-      completedSteps++;
-      progressFill.style.width = Math.min(100, (completedSteps / totalSteps) * 100) + '%';
-    };
-
-    // Pre-create round blocks
+  for (let i = 0; i < AGENTS.length; i++) {
+    const agent = AGENTS[i];
+    html += `<tr><td class="agent-col">${AGENT_LABELS[agent]}</td>`;
     for (let r = 0; r <= rounds; r++) {
-      container.appendChild(createRoundBlock(r, rounds));
+      let role, color;
+      if (r === 0)      { role = 'Ideation';    color = 'var(--ideation)'; }
+      else if (r === rounds) { role = r === i + 1 || agent === 'claude' ? 'Synthesizer' : '—'; color = 'var(--synthesizer)'; role = agent === 'claude' ? 'Synthesizer' : '—'; }
+      else              { role = getRole(i, r); color = `var(--${role.toLowerCase()})`; }
+      html += `<td style="color:${color};font-weight:600;">${role}</td>`;
     }
-    // Final
-    container.appendChild(createRoundBlock(rounds + 1, rounds));
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  table.innerHTML = html;
+}
 
-    // SSE via fetch + ReadableStream
+document.getElementById('rounds').addEventListener('input', renderRotationTable);
+renderRotationTable();
+
+// --- DOM helpers ---
+function createRoundBlock(round, totalRounds) {
+  const isFinal = round === totalRounds;
+  const isIdeation = round === 0;
+
+  const block = document.createElement('div');
+  block.className = `round-block open${isFinal ? ' final' : ''}`;
+  block.dataset.round = isFinal ? 'final' : round;
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'round-header';
+  header.addEventListener('click', () => block.classList.toggle('open'));
+
+  const title = document.createElement('h3');
+  title.textContent = isIdeation ? 'Round 0 — Independent Ideation'
+                    : isFinal    ? 'Final Synthesis — Claude'
+                    : `Round ${round} — ${isCompressRound(round) ? 'Compress' : 'Expand'}`;
+  header.appendChild(title);
+
+  const meta = document.createElement('div');
+  meta.className = 'round-meta';
+
+  if (!isIdeation && !isFinal) {
+    const passBadge = document.createElement('span');
+    passBadge.className = `pass-badge ${isCompressRound(round) ? 'compress' : 'expand'}`;
+    passBadge.textContent = isCompressRound(round) ? 'Compress' : 'Expand';
+    meta.appendChild(passBadge);
+  }
+
+  const statusBadge = document.createElement('span');
+  statusBadge.className = 'status-badge running';
+  statusBadge.textContent = 'Running…';
+  statusBadge.id = `badge-r${isFinal ? 'final' : round}`;
+  meta.appendChild(statusBadge);
+
+  const chevron = document.createElement('span');
+  chevron.className = 'chevron';
+  chevron.innerHTML = '&#9660;';
+  meta.appendChild(chevron);
+
+  header.appendChild(meta);
+  block.appendChild(header);
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'round-body';
+
+  if (isFinal) {
+    const finalHeaderRow = document.createElement('div');
+    finalHeaderRow.className = 'final-header-row';
+    finalHeaderRow.innerHTML = '<span class="agent-dot"></span><span style="font-size:12px;font-weight:700;color:var(--claude);text-transform:uppercase;letter-spacing:.5px;">Claude</span><span class="role-chip Synthesizer">Synthesizer</span>';
+    body.appendChild(finalHeaderRow);
+
+    const finalBody = document.createElement('div');
+    finalBody.className = 'final-body loading';
+    finalBody.textContent = 'Waiting for final synthesis…';
+    finalBody.id = 'final-body';
+    body.appendChild(finalBody);
+  } else {
+    const grid = document.createElement('div');
+    grid.className = 'agents-grid';
+
+    AGENTS.forEach((agent, i) => {
+      const role = isIdeation ? 'Ideation' : getRole(i, round);
+
+      const panel = document.createElement('div');
+      panel.className = `agent-panel ${agent}`;
+
+      const panelHeader = document.createElement('div');
+      panelHeader.className = 'agent-panel-header';
+      panelHeader.innerHTML = `
+        <span class="agent-dot"></span>
+        <span class="agent-label">${AGENT_LABELS[agent]}</span>
+        <span class="role-chip ${role}" id="role-r${round}-${agent}">${role}</span>
+      `;
+      panel.appendChild(panelHeader);
+
+      const panelBody = document.createElement('div');
+      panelBody.className = 'agent-panel-body loading';
+      panelBody.textContent = 'Thinking…';
+      panelBody.id = `r${round}-${agent}`;
+      panel.appendChild(panelBody);
+
+      grid.appendChild(panel);
+    });
+
+    body.appendChild(grid);
+  }
+
+  block.appendChild(body);
+  return block;
+}
+
+// --- SSE event handler ---
+function handleEvent(event, data, totalRounds) {
+  switch (event) {
+    case 'round-start': {
+      document.getElementById('statusText').textContent =
+        data.isFinal ? 'Final synthesis…' : `Running round ${data.round}…`;
+      break;
+    }
+    case 'agent-start': {
+      if (data.isFinal) {
+        const b = document.getElementById('final-body');
+        if (b) { b.textContent = 'Synthesizing…'; b.className = 'final-body loading'; }
+      } else {
+        const p = document.getElementById(`r${data.round}-${data.agent}`);
+        if (p) { p.textContent = 'Thinking…'; p.className = 'agent-panel-body loading'; }
+        // Update role chip if server sends role
+        if (data.role) {
+          const chip = document.getElementById(`role-r${data.round}-${data.agent}`);
+          if (chip) { chip.textContent = data.role; chip.className = `role-chip ${data.role}`; }
+        }
+      }
+      break;
+    }
+    case 'agent-done': {
+      if (data.isFinal) {
+        const b = document.getElementById('final-body');
+        if (b) { b.textContent = data.result; b.className = 'final-body'; }
+      } else {
+        const p = document.getElementById(`r${data.round}-${data.agent}`);
+        if (p) { p.textContent = data.result; p.className = 'agent-panel-body'; }
+      }
+      break;
+    }
+    case 'agent-error': {
+      if (data.isFinal) {
+        const b = document.getElementById('final-body');
+        if (b) { b.textContent = `Error: ${data.error}`; b.className = 'final-body error'; }
+      } else {
+        const p = document.getElementById(`r${data.round}-${data.agent}`);
+        if (p) { p.textContent = `Error: ${data.error}`; p.className = 'agent-panel-body error'; }
+      }
+      break;
+    }
+    case 'round-done': {
+      const key = data.isFinal ? 'rfinal' : `r${data.round}`;
+      const badge = document.getElementById(`badge-${key}`);
+      if (badge) { badge.textContent = 'Done'; badge.className = 'status-badge done'; }
+
+      // Collapse completed non-final rounds (keep the last synthesis round open)
+      if (!data.isFinal && data.round < totalRounds - 1) {
+        const block = document.querySelector(`[data-round="${data.round}"]`);
+        if (block) block.classList.remove('open');
+      }
+      break;
+    }
+    case 'done': {
+      // Ensure final is open
+      const finalBlock = document.querySelector('[data-round="final"]');
+      if (finalBlock) finalBlock.classList.add('open');
+      break;
+    }
+  }
+}
+
+// --- Main synthesis runner ---
+async function startSynthesis() {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) return;
+
+  const rounds = Math.max(3, parseInt(document.getElementById('rounds').value) || 3);
+  const instructions = document.getElementById('instructions').value.trim();
+  const container = document.getElementById('roundsContainer');
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+  const goBtn = document.getElementById('goBtn');
+
+  container.innerHTML = '';
+  goBtn.disabled = true;
+  progressBar.classList.add('active');
+  progressFill.style.width = '5%';
+
+  // Pre-build all round blocks
+  for (let r = 0; r <= rounds; r++) {
+    container.appendChild(createRoundBlock(r, rounds));
+  }
+
+  // Rough progress tracking
+  const totalAgentCalls = rounds * 3 + 1; // synthesis rounds × 3 agents + final
+  let done = 0;
+  const tick = () => {
+    done++;
+    progressFill.style.width = Math.min(95, 5 + (done / totalAgentCalls) * 90) + '%';
+  };
+
+  try {
     const response = await fetch('/api/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -445,15 +624,15 @@
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
+    let buf = '';
 
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      const { done: streamDone, value } = await reader.read();
+      if (streamDone) break;
+      buf += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep incomplete line
+      const lines = buf.split('\n');
+      buf = lines.pop();
 
       let eventType = null;
       for (const line of lines) {
@@ -461,74 +640,25 @@
           eventType = line.slice(7);
         } else if (line.startsWith('data: ') && eventType) {
           const data = JSON.parse(line.slice(6));
-          handleEvent(eventType, data, rounds, statusText, updateProgress);
+          if (eventType === 'agent-done' || eventType === 'agent-error') tick();
+          handleEvent(eventType, data, rounds);
           eventType = null;
         }
       }
     }
-
-    goBtn.disabled = false;
-    progressFill.style.width = '100%';
-    statusText.textContent = 'Done!';
-    setTimeout(() => { progressBar.classList.remove('active'); statusText.textContent = ''; }, 2000);
+  } catch (err) {
+    document.getElementById('statusText').textContent = `Error: ${err.message}`;
   }
 
-  function handleEvent(event, data, totalRounds, statusText) {
-    switch (event) {
-      case 'round-start': {
-        const label = data.isFinal ? 'Final synthesis...' : `Round ${data.round}...`;
-        statusText.textContent = label;
-        break;
-      }
-      case 'agent-start': {
-        if (data.isFinal) {
-          const body = document.getElementById('final-body');
-          if (body) { body.textContent = 'Claude is synthesizing...'; body.className = 'final-body loading'; }
-        }
-        break;
-      }
-      case 'agent-done': {
-        if (data.isFinal) {
-          const body = document.getElementById('final-body');
-          if (body) { body.textContent = data.result; body.className = 'final-body'; }
-        } else {
-          const panel = document.getElementById(`r${data.round}-${data.agent}`);
-          if (panel) { panel.textContent = data.result; panel.className = 'agent-panel-body'; }
-        }
-        break;
-      }
-      case 'agent-error': {
-        if (data.isFinal) {
-          const body = document.getElementById('final-body');
-          if (body) { body.textContent = `Error: ${data.error}`; body.className = 'final-body'; body.style.color = '#ef4444'; }
-        } else {
-          const panel = document.getElementById(`r${data.round}-${data.agent}`);
-          if (panel) { panel.textContent = `Error: ${data.error}`; panel.className = 'agent-panel-body'; panel.style.color = '#ef4444'; }
-        }
-        break;
-      }
-      case 'round-done': {
-        // Update badge
-        const selector = data.isFinal ? '[data-round="final"]' : `[data-round="${data.round}"]`;
-        const block = document.querySelector(selector);
-        if (block) {
-          const badge = block.querySelector('.badge');
-          if (badge) { badge.textContent = 'Complete'; badge.className = 'badge done'; }
-          // Collapse non-final completed rounds, keep most recent open
-          if (!data.isFinal && data.round < totalRounds) {
-            block.classList.remove('open');
-          }
-        }
-        break;
-      }
-      case 'done': {
-        // Expand the final block
-        const finalBlock = document.querySelector('[data-round="final"]');
-        if (finalBlock) finalBlock.classList.add('open');
-        break;
-      }
-    }
-  }
+  goBtn.disabled = false;
+  progressFill.style.width = '100%';
+  document.getElementById('statusText').textContent = 'Complete';
+  setTimeout(() => {
+    progressBar.classList.remove('active');
+    progressFill.style.width = '0%';
+    document.getElementById('statusText').textContent = '';
+  }, 2500);
+}
 </script>
 
 </body>
