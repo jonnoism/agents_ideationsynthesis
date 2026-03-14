@@ -45,7 +45,7 @@ async function callClaude(systemPrompt, userMessage, signal, maxTokens = 8192) {
 async function callChatGPT(systemPrompt, userMessage, signal, maxTokens = 8192) {
   if (!openai) throw new Error('OpenAI API key not configured');
   const resp = await openai.chat.completions.create(
-    { model: 'gpt-4o', max_tokens: maxTokens, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
+    { model: 'gpt-4o', max_tokens: maxTokens, tools: [{ type: 'web_search_preview' }], messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
     { signal }
   );
   const text = resp.choices?.[0]?.message?.content;
@@ -55,7 +55,7 @@ async function callChatGPT(systemPrompt, userMessage, signal, maxTokens = 8192) 
 
 async function callGemini(systemPrompt, userMessage, signal, maxTokens = 8192) {
   if (!genAI) throw new Error('Gemini API key not configured');
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt, generationConfig: { maxOutputTokens: maxTokens } });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001', systemInstruction: systemPrompt, generationConfig: { maxOutputTokens: maxTokens } });
   const result = await model.generateContent(userMessage, { signal });
   const text = result.response?.text?.();
   if (!text) throw new Error('Gemini returned an empty response');
