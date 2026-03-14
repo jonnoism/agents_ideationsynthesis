@@ -112,6 +112,8 @@
     }
     .btn:hover:not(:disabled) { background: var(--accent-dim); }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn.stop { background: #ef4444; }
+    .btn.stop:hover:not(:disabled) { background: #dc2626; }
     .btn-row { display: flex; gap: 12px; align-items: center; }
     .status-text { font-size: 13px; color: var(--text-dim); }
 
@@ -353,6 +355,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Run Synthesis
       </button>
+      <button class="btn stop" id="stopBtn" onclick="stopSynthesis()" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Stop
+      </button>
       <span class="status-text" id="statusText"></span>
     </div>
   </div>
@@ -576,12 +582,37 @@ function handleEvent(event, data, totalRounds) {
       }
       break;
     }
+    case 'terminated': {
+      document.getElementById('statusText').textContent = 'Stopping…';
+      // Mark any still-running panels as stopped
+      document.querySelectorAll('.agent-panel-body.loading').forEach(el => {
+        el.textContent = 'Stopped.';
+        el.className = 'agent-panel-body';
+        el.style.color = 'var(--text-dim)';
+      });
+      const fb = document.getElementById('final-body');
+      if (fb && fb.classList.contains('loading')) {
+        fb.textContent = 'Stopped.';
+        fb.className = 'final-body';
+        fb.style.color = 'var(--text-dim)';
+      }
+      break;
+    }
     case 'done': {
-      // Ensure final is open
       const finalBlock = document.querySelector('[data-round="final"]');
       if (finalBlock) finalBlock.classList.add('open');
       break;
     }
+  }
+}
+
+// --- Terminate ---
+let activeController = null;
+
+function stopSynthesis() {
+  if (activeController) {
+    activeController.abort();
+    activeController = null;
   }
 }
 
@@ -596,9 +627,11 @@ async function startSynthesis() {
   const progressBar = document.getElementById('progressBar');
   const progressFill = document.getElementById('progressFill');
   const goBtn = document.getElementById('goBtn');
+  const stopBtn = document.getElementById('stopBtn');
 
   container.innerHTML = '';
-  goBtn.disabled = true;
+  goBtn.style.display = 'none';
+  stopBtn.style.display = '';
   progressBar.classList.add('active');
   progressFill.style.width = '5%';
 
@@ -608,18 +641,21 @@ async function startSynthesis() {
   }
 
   // Rough progress tracking
-  const totalAgentCalls = rounds * 3 + 1; // synthesis rounds × 3 agents + final
-  let done = 0;
+  const totalAgentCalls = rounds * 3 + 1;
+  let doneCount = 0;
   const tick = () => {
-    done++;
-    progressFill.style.width = Math.min(95, 5 + (done / totalAgentCalls) * 90) + '%';
+    doneCount++;
+    progressFill.style.width = Math.min(95, 5 + (doneCount / totalAgentCalls) * 90) + '%';
   };
+
+  activeController = new AbortController();
 
   try {
     const response = await fetch('/api/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, rounds, instructions }),
+      signal: activeController.signal,
     });
 
     const reader = response.body.getReader();
@@ -647,12 +683,18 @@ async function startSynthesis() {
       }
     }
   } catch (err) {
-    document.getElementById('statusText').textContent = `Error: ${err.message}`;
+    if (err.name !== 'AbortError') {
+      document.getElementById('statusText').textContent = `Error: ${err.message}`;
+    }
   }
 
-  goBtn.disabled = false;
+  activeController = null;
+  goBtn.style.display = '';
+  stopBtn.style.display = 'none';
+
+  const wasTerminated = document.getElementById('statusText').textContent === 'Stopping…';
   progressFill.style.width = '100%';
-  document.getElementById('statusText').textContent = 'Complete';
+  document.getElementById('statusText').textContent = wasTerminated ? 'Stopped' : 'Complete';
   setTimeout(() => {
     progressBar.classList.remove('active');
     progressFill.style.width = '0%';

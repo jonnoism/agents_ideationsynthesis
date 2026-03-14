@@ -29,37 +29,28 @@ function initClients() {
 
 // --- Individual agent callers ---
 
-async function callClaude(systemPrompt, userMessage) {
+async function callClaude(systemPrompt, userMessage, signal) {
   if (!anthropic) throw new Error('Anthropic API key not configured');
-  const resp = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-  });
+  const resp = await anthropic.messages.create(
+    { model: 'claude-opus-4-5', max_tokens: 4096, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] },
+    { signal }
+  );
   return resp.content[0].text;
 }
 
-async function callChatGPT(systemPrompt, userMessage) {
+async function callChatGPT(systemPrompt, userMessage, signal) {
   if (!openai) throw new Error('OpenAI API key not configured');
-  const resp = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    max_tokens: 4096,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage },
-    ],
-  });
+  const resp = await openai.chat.completions.create(
+    { model: 'gpt-4o', max_tokens: 4096, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
+    { signal }
+  );
   return resp.choices[0].message.content;
 }
 
-async function callGemini(systemPrompt, userMessage) {
+async function callGemini(systemPrompt, userMessage, signal) {
   if (!genAI) throw new Error('Gemini API key not configured');
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    systemInstruction: systemPrompt,
-  });
-  const result = await model.generateContent(userMessage);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt });
+  const result = await model.generateContent(userMessage, { signal });
   return result.response.text();
 }
 
@@ -187,8 +178,6 @@ app.post('/api/synthesize', async (req, res) => {
   initClients();
 
   let { prompt, rounds = 3, instructions = '' } = req.body;
-
-  // Enforce minimum 3 rounds for full role rotation coverage
   rounds = Math.max(3, parseInt(rounds) || 3);
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -196,29 +185,38 @@ app.post('/api/synthesize', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  const controller = new AbortController();
+  const { signal } = controller;
+
+  // Client disconnected (Stop button / browser close) → abort all in-flight calls
+  req.on('close', () => controller.abort());
+
+  const send = (event, data) => {
+    if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const isAbort = (err) => err.name === 'AbortError' || signal.aborted;
 
   try {
     let previousResponses = null;
 
-    // Rounds 0..rounds: Round 0 = initial, 1..rounds = synthesis, final = after
     for (let round = 0; round <= rounds; round++) {
+      if (signal.aborted) break;
+
       const isFinalRound = round === rounds;
       send('round-start', { round, isFinal: isFinalRound, totalRounds: rounds });
 
       if (isFinalRound) {
-        // Final synthesis — Claude only
         const { systemPrompt, userMsg } = buildFinalPrompt(instructions, rounds, previousResponses, prompt);
         send('agent-start', { round, agent: 'claude', role: 'Synthesizer', isFinal: true });
         try {
-          const result = await callClaude(systemPrompt, userMsg);
+          const result = await callClaude(systemPrompt, userMsg, signal);
           send('agent-done', { round, agent: 'claude', role: 'Synthesizer', result, isFinal: true });
         } catch (err) {
-          send('agent-error', { round, agent: 'claude', role: 'Synthesizer', error: err.message, isFinal: true });
+          if (!isAbort(err)) send('agent-error', { round, agent: 'claude', role: 'Synthesizer', error: err.message, isFinal: true });
         }
 
       } else if (round === 0) {
-        // Round 0 — independent ideation, no roles yet
         const systemPrompt = [
           `You are a helpful, knowledgeable assistant.`,
           instructions ? `Focus: ${instructions}` : '',
@@ -227,44 +225,47 @@ app.post('/api/synthesize', async (req, res) => {
 
         const results = {};
         await Promise.all(AGENT_NAMES.map(async (name, i) => {
+          if (signal.aborted) return;
           send('agent-start', { round, agent: name, role: 'Ideation' });
           try {
-            const result = await AGENT_CALLERS[i](systemPrompt, prompt);
+            const result = await AGENT_CALLERS[i](systemPrompt, prompt, signal);
             results[name] = result;
             send('agent-done', { round, agent: name, role: 'Ideation', result });
           } catch (err) {
             results[name] = `[Error: ${err.message}]`;
-            send('agent-error', { round, agent: name, role: 'Ideation', error: err.message });
+            if (!isAbort(err)) send('agent-error', { round, agent: name, role: 'Ideation', error: err.message });
           }
         }));
         previousResponses = results;
 
       } else {
-        // Synthesis rounds 1..rounds-1
         const results = {};
         await Promise.all(AGENT_NAMES.map(async (name, i) => {
-          const { systemPrompt, userMsg, role } = buildSynthesisPrompt(
-            instructions, round, i, previousResponses, prompt
-          );
+          if (signal.aborted) return;
+          const { systemPrompt, userMsg, role } = buildSynthesisPrompt(instructions, round, i, previousResponses, prompt);
           send('agent-start', { round, agent: name, role });
           try {
-            const result = await AGENT_CALLERS[i](systemPrompt, userMsg);
+            const result = await AGENT_CALLERS[i](systemPrompt, userMsg, signal);
             results[name] = result;
             send('agent-done', { round, agent: name, role, result });
           } catch (err) {
             results[name] = `[Error: ${err.message}]`;
-            send('agent-error', { round, agent: name, role, error: err.message });
+            if (!isAbort(err)) send('agent-error', { round, agent: name, role, error: err.message });
           }
         }));
         previousResponses = results;
       }
 
-      send('round-done', { round, isFinal: isFinalRound });
+      if (!signal.aborted) send('round-done', { round, isFinal: isFinalRound });
     }
 
-    send('done', {});
+    if (signal.aborted) {
+      send('terminated', {});
+    } else {
+      send('done', {});
+    }
   } catch (err) {
-    send('error', { error: err.message });
+    if (!isAbort(err)) send('error', { error: err.message });
   }
 
   res.end();
