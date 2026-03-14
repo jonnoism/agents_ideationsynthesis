@@ -420,7 +420,7 @@ function renderRotationTable() {
     for (let r = 0; r <= rounds; r++) {
       let role, color;
       if (r === 0)      { role = 'Ideation';    color = 'var(--ideation)'; }
-      else if (r === rounds) { role = r === i + 1 || agent === 'claude' ? 'Synthesizer' : '—'; color = 'var(--synthesizer)'; role = agent === 'claude' ? 'Synthesizer' : '—'; }
+      else if (r === rounds) { role = agent === 'claude' ? 'Synthesizer' : '—'; color = 'var(--synthesizer)'; }
       else              { role = getRole(i, r); color = `var(--${role.toLowerCase()})`; }
       html += `<td style="color:${color};font-weight:600;">${role}</td>`;
     }
@@ -680,7 +680,8 @@ async function startSynthesis() {
         if (line.startsWith('event: ')) {
           eventType = line.slice(7);
         } else if (line.startsWith('data: ') && eventType) {
-          const data = JSON.parse(line.slice(6));
+          let data;
+          try { data = JSON.parse(line.slice(6)); } catch { eventType = null; continue; }
           if (eventType === 'agent-done' || eventType === 'agent-error') tick();
           handleEvent(eventType, data, rounds);
           eventType = null;

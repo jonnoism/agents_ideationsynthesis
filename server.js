@@ -37,7 +37,9 @@ async function callClaude(systemPrompt, userMessage, signal, maxTokens = 8192) {
     { model: 'claude-opus-4-5', max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] },
     { signal }
   );
-  return resp.content[0].text;
+  const text = resp.content?.[0]?.text;
+  if (!text) throw new Error('Claude returned an empty response');
+  return text;
 }
 
 async function callChatGPT(systemPrompt, userMessage, signal, maxTokens = 8192) {
@@ -46,14 +48,18 @@ async function callChatGPT(systemPrompt, userMessage, signal, maxTokens = 8192) 
     { model: 'gpt-4o', max_tokens: maxTokens, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
     { signal }
   );
-  return resp.choices[0].message.content;
+  const text = resp.choices?.[0]?.message?.content;
+  if (!text) throw new Error('ChatGPT returned an empty response');
+  return text;
 }
 
 async function callGemini(systemPrompt, userMessage, signal, maxTokens = 8192) {
   if (!genAI) throw new Error('Gemini API key not configured');
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt, generationConfig: { maxOutputTokens: maxTokens } });
   const result = await model.generateContent(userMessage, { signal });
-  return result.response.text();
+  const text = result.response?.text?.();
+  if (!text) throw new Error('Gemini returned an empty response');
+  return text;
 }
 
 const AGENT_CALLERS = [callClaude, callChatGPT, callGemini];
@@ -180,7 +186,7 @@ app.post('/api/synthesize', async (req, res) => {
   initClients();
 
   let { prompt, rounds = 3, instructions = '' } = req.body;
-  rounds = Math.max(3, parseInt(rounds) || 3);
+  rounds = Math.min(20, Math.max(3, parseInt(rounds) || 3));
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
